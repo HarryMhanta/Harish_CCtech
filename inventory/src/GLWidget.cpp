@@ -72,7 +72,7 @@ void GLWidget::paintGL() {
     }
  
 }
- 
+
 void GLWidget::mousePressEvent(QMouseEvent *event) {
     if (event->button() == Qt::RightButton && event->type() == QEvent::MouseButtonDblClick) {
         rightMousePressed = true; // Enable rotation

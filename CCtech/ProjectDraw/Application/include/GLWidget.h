@@ -23,14 +23,17 @@ public:
     void loadSphereEdges(); // Add this line to declare the method
     void loadCubeEdges(); // Add this line to declare the method
     void loadCylinderEdges(); // Add this line to declare the method
-    void loadRectangleEdges(); // Add this line to declare the method
+    //void loadRectangleEdges(); // Add this line to declare the method
     explicit GLWidget(QWidget* parent = nullptr);
     void loadModel(const QString& filepath); // Your custom model loader
     void addShape(const QString& shapeName);  // e.g., "Cube", "Sphere", etc.
-    void myInit();
+    //void myInit();
     void addAxis(); // Add this line to declare the method
     //void drawBezier();
     //QVector3D deCasteljau(float t, const QVector<QVector3D>& points);
+    void setCubeDimensions(double length, double breadth, double height);
+    void setSphereRadius(double radius);
+    void setCylinderDimensions(double radius, double height);
     
 
  

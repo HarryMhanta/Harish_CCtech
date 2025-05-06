@@ -27,7 +27,7 @@ file(GLOB APPLICATION_SRC
     ${CMAKE_SOURCE_DIR}/application/src/MainWindow.cpp
     ${CMAKE_SOURCE_DIR}/application/include/MainWindow.h
     ${CMAKE_SOURCE_DIR}/application/src/*.cpp
-    ${CMAKE_SOURCE_DIR}/application/ui/*.ui
+    # ${CMAKE_SOURCE_DIR}/application/ui/*.ui
 )
  
 file(GLOB OPENGL_SRC

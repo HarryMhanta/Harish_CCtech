@@ -10,7 +10,7 @@ GLWidget::GLWidget(QWidget* parent)
     : QOpenGLWidget(parent), zoom(-1.5f) // Slightly farther
 {
     
-    // Initialize the cube with only dimensions (length, breadth, height)
+    // Initialize the Shapes
     cube = std::make_shared<Cube<float>>(2.0f, 2.0f, 2.0f); // Example dimensions
     cylinder = std::make_shared<Cylinder<float>>(5.0f, 5.0f); // Example dimensions
     sphere = std::make_shared<Sphere<float>>(5.0f); // Example radius
@@ -59,34 +59,44 @@ void GLWidget::setShape(const QString& shape) {
     update();  // Trigger repaint
 }
 
+void GLWidget::addShape(const QString& shapeName) {
+    if (shapeName == "Cube") {
+        cube = std::make_shared<Cube<float>>(2.0f, 2.0f, 2.0f); // Create a cube
+        qDebug() << "Cube added to the scene.";
+    } else if (shapeName == "Sphere") {
+        sphere = std::make_shared<Sphere<float>>(2.0f); // Create a sphere
+        qDebug() << "Sphere added to the scene.";
+    } else if (shapeName == "Cylinder") {
+        cylinder = std::make_shared<Cylinder<float>>(2.0f, 5.0f); // Create a cylinder
+        qDebug() << "Cylinder added to the scene.";
+    } else if (shapeName == "Rectangle") {
+        // Add logic for rectangle if applicable
+        qDebug() << "Rectangle added to the scene.";
+    } else {
+        qDebug() << "Unknown shape: " << shapeName;
+    }
 
-// Initialize OpenGL settings
-// void GLWidget::initializeGL() {
-//     initializeOpenGLFunctions();
+    currentShape = shapeName; // Update the current shape
+    update(); // Trigger a repaint of the OpenGL widget
+}
 
-//     glEnable(GL_DEPTH_TEST);
-//     glEnable(GL_LIGHTING);
-//     glEnable(GL_LIGHT0);
-//     glEnable(GL_COLOR_MATERIAL);
+void GLWidget::setCubeDimensions(double length, double breadth, double height) {
+    cube = std::make_shared<Cube<float>>(length, breadth, height);
+    currentShape = "Cube";
+    update(); // Trigger repaint
+}
 
-//     GLfloat ambient[] = { 0.2f, 0.2f, 0.2f, 1.0f };
-//     GLfloat diffuse[] = { 0.8f, 0.8f, 0.8f, 1.0f };
-//     GLfloat specular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-//     GLfloat position[] = { 0.0f, 0.0f, 5.0f, 1.0f };
+void GLWidget::setSphereRadius(double radius) {
+    sphere = std::make_shared<Sphere<float>>(radius);
+    currentShape = "Sphere";
+    update(); // Trigger repaint
+}
 
-//     glLightfv(GL_LIGHT0, GL_AMBIENT, ambient);
-//     glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
-//     glLightfv(GL_LIGHT0, GL_SPECULAR, specular);
-//     glLightfv(GL_LIGHT0, GL_POSITION, position);
-
-//     glEnable(GL_NORMALIZE);
-
-//     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-
-//     updateTimer = new QTimer(this);
-//     connect(updateTimer, &QTimer::timeout, this, QOverload<>::of(&GLWidget::update));
-//     updateTimer->start(16); // ~60 FPS
-// }
+void GLWidget::setCylinderDimensions(double radius, double height) {
+    cylinder = std::make_shared<Cylinder<float>>(radius, height);
+    currentShape = "Cylinder";
+    update(); // Trigger repaint
+}
 
 void GLWidget::initializeGL() {
     initializeOpenGLFunctions();
