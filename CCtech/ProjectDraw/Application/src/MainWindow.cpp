@@ -1,6 +1,6 @@
 #include "MainWindow.h"
 #include "GLWidget.h"
-
+#include "PolygonExtrusionWidget.h"
 #include <QPushButton>
 #include <QComboBox>
 #include <QGroupBox>
@@ -24,6 +24,7 @@ MainWindow::MainWindow(QWidget *parent)
     // Central widget
     QWidget *centralWidget = new QWidget(this);
     setCentralWidget(centralWidget);
+
 
     // OpenGL Widget
     openGLWidget = new GLWidget(centralWidget);
@@ -73,6 +74,10 @@ MainWindow::MainWindow(QWidget *parent)
     bottomLayout->addWidget(loadSTLButton);
     bottomLayout->addWidget(loadOBJButton);
 
+    //bottom layout for extrude button
+    extrudeButton = new QPushButton("Extrude", centralWidget);
+    bottomLayout->addWidget(extrudeButton);
+
     // Add widgets to the main layout
     mainLayout->addLayout(topLayout);
     mainLayout->addWidget(openGLWidget, 1); // Stretch factor to make it resizable
@@ -98,6 +103,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(saveButton, &QPushButton::clicked, this, &MainWindow::onSaveButtonClicked);
     connect(loadOBJButton, &QPushButton::clicked, this, &MainWindow::onLoadOBJButtonClicked);
     connect(loadSTLButton, &QPushButton::clicked, this, &MainWindow::onLoadSTLButtonClicked);
+    connect(extrudeButton, &QPushButton::clicked, this, &MainWindow::onExtrudeButtonClicked);
 }
 
 MainWindow::~MainWindow()
@@ -140,6 +146,14 @@ void MainWindow::onShapeSelected(const QString& shapeName)
         // Pass the dimensions to the OpenGL widget
         openGLWidget->setCylinderDimensions(radius, height);
     }
+}
+
+void MainWindow::onExtrudeButtonClicked() {
+    PolygonExtrusionWidget *extrusionWidget = new PolygonExtrusionWidget();
+    extrusionWidget->setAttribute(Qt::WA_DeleteOnClose); // Automatically delete when closed
+    extrusionWidget->setWindowTitle("Polygon Extrusion");
+    extrusionWidget->resize(800, 600);
+    extrusionWidget->show();
 }
 
 void MainWindow::onAddButtonClicked()

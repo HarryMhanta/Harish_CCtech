@@ -33,6 +33,8 @@ file(GLOB APPLICATION_SRC
 file(GLOB OPENGL_SRC
     ${CMAKE_SOURCE_DIR}/application/src/GLWidget.cpp
     ${CMAKE_SOURCE_DIR}/application/include/GLWidget.h
+    ${CMAKE_SOURCE_DIR}/application/src/PolygonExtrusionwidget.cpp
+    ${CMAKE_SOURCE_DIR}/application/include/PolygonExtrusionwidget.h
 )
 list(APPEND APPLICATION_SRC ${OPENGL_SRC})
  
