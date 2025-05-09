@@ -24,7 +24,7 @@ private:
     QString selectedShape;  // Store the selected shape name
     QPushButton *extrudeButton;
 
-    // Member variables for UI components
+    // Member variables for UI components 
     GLWidget* openGLWidget;
     QPushButton* saveButton;
     QPushButton* loadOBJButton;
@@ -40,5 +40,5 @@ private slots:
     void onSaveButtonClicked();                     // Handle Save button click
     void onLoadOBJButtonClicked();                  // Handle Load OBJ button click
     void onLoadSTLButtonClicked();                  // Handle Load STL button click
-    void onExtrudeButtonClicked();
+    void onExtrudeButtonClicked();                // Handle Extrude button click
 };

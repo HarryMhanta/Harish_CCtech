@@ -15,7 +15,6 @@ class GLWidget : public QOpenGLWidget, protected QOpenGLFunctions {
     Q_OBJECT
  
 public:
-    // Other declarations...
     QString currentShape; // Track selected shape
     //QVector<QVector3D> bezierControlPoints;
 

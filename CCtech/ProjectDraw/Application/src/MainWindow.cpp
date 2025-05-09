@@ -18,7 +18,7 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
-    resize(1274, 891);
+    resize(1200, 800);
     setWindowTitle("MainWindow");
 
     // Central widget
