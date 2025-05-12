@@ -128,7 +128,7 @@ void MainWindow::onShapeSelected(const QString& shapeName)
 
         // Pass the dimensions to the OpenGL widget
         openGLWidget->setCubeDimensions(length, breadth, height);
-    } else if (shapeName == "Sphere") {
+    } else if (shapeName == "Sphere") { 
         bool ok;
         double radius = QInputDialog::getDouble(this, "Sphere Dimensions", "Enter radius:", 2.0, 0.1, 100.0, 2, &ok);
         if (!ok) return;
