@@ -9,6 +9,7 @@
 #include <QPushButton>
 #include <QCheckBox>
 #include <vector>
+#include <QPointF>
 
 struct Polygon {
     QVector<QVector3D> points;          // Points of the polygon
@@ -52,10 +53,6 @@ private:
     QVector3D screenToWorld(const QPoint &pos); // Convert screen coordinates to world coordinates
     bool isCloseToFirstPoint(const QVector3D &p, const Polygon &polygon); // Check if a point is close to the first point of a polygon
     QVector3D computePolygonNormal(const QVector<QVector3D> &points); // Compute the normal vector of a polygon
-    bool isPointInsidePolygon(const QVector3D &point, const Polygon &polygon); // Check if a point is inside a polygon
-    bool checkEdgeIntersection(const QVector3D &a1, const QVector3D &a2,
-                                const QVector3D &b1, const QVector3D &b2,
-                                QVector3D &intersection); // Check if two edges intersect and 
 
     // Boolean operation functions
     QVector<QVector3D> computeUnion(const Polygon &A, const Polygon &B); // Compute the union of two polygons
@@ -63,10 +60,14 @@ private:
     QVector<QVector3D> computeSubtraction(const Polygon &A, const Polygon &B); // Compute the subtraction of two polygons
 
     // Helper functions for boolean operations
-    static bool pointInPolygon(const std::vector<std::vector<float>> &polygon, float x, float y); // Check if a point is inside a polygon (2D)
-    std::vector<std::vector<float>> clipPolygon(const std::vector<std::vector<float>> &subjectPolygon,
-                                                const std::vector<std::vector<float>> &clipPolygon); // Clip a polygon using Sutherland–Hodgman
-    std::vector<std::vector<float>> convexHull(std::vector<std::vector<float>> P); // Compute the convex hull of a set of points
+    bool pointInPolygon(const QPointF& point, const std::vector<QPointF>& polygon); // Check if a point is inside a polygon
+    bool segmentsIntersect(const QPointF& a1, const QPointF& a2, const QPointF& b1, const QPointF& b2, QPointF& out); // Check if two line segments intersect
+    void addAndSortIntersections(std::vector<QPointF>& result, const QPointF& point); // Add and sort intersection points
+    std::vector<QPointF> splitEdges(const std::vector<QPointF>& polygon, const std::vector<QPointF>& intersections); // Split edges at intersection points
+
+    // PolygonBoolean operations
+    std::vector<QPointF> intersect(const std::vector<QPointF>& poly1, const std::vector<QPointF>& poly2); // Compute intersection of two polygons
+    std::vector<QPointF> unionPolygons(const std::vector<QPointF>& poly1, const std::vector<QPointF>& poly2); // Compute union of two polygons
 
 private slots:
     void onApplyBooleanOperation(); // Slot to handle the application of boolean operations

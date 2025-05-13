@@ -6,6 +6,10 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QCheckBox>
+#include <algorithm>
+#include <vector>
+
+using std::vector;
 
 PolygonExtrusionWidget::PolygonExtrusionWidget(QWidget *parent)
     : QOpenGLWidget(parent) {
@@ -53,7 +57,7 @@ void PolygonExtrusionWidget::paintGL() {
     glLoadIdentity();
     glRotatef(rotationX, 1.0f, 0.0f, 0.0f);
     glRotatef(rotationY, 0.0f, 1.0f, 0.0f);
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE_LOOP);
 
     for (const auto &polygon : polygons) {
         glColor3f(1.5f, 0.5f, 0.5f);
@@ -175,17 +179,177 @@ QVector3D PolygonExtrusionWidget::computePolygonNormal(const QVector<QVector3D> 
     return normal.normalized();
 }
 
-bool PolygonExtrusionWidget::isPointInsidePolygon(const QVector3D &point, const Polygon &polygon) {
+bool PolygonExtrusionWidget::pointInPolygon(const QPointF& point, const std::vector<QPointF>& polygon) {
     int count = 0;
-    for (int i = 0; i < polygon.points.size(); ++i) {
-        QVector3D a = polygon.points[i];
-        QVector3D b = polygon.points[(i + 1) % polygon.points.size()];
-        if (((a.y() > point.y()) != (b.y() > point.y())) &&
-            (point.x() < (b.x() - a.x()) * (point.y() - a.y()) / (b.y() - a.y()) + a.x())) {
-            count++;
+    for (size_t i = 0; i < polygon.size(); ++i) {
+        QPointF a = polygon[i];
+        QPointF b = polygon[(i + 1) % polygon.size()];
+        if ((a.y() > point.y()) != (b.y() > point.y())) {
+            double intersectX = (b.x() - a.x()) * (point.y() - a.y()) / (b.y() - a.y()) + a.x();
+            if (point.x() < intersectX) {
+                count++;
+            }
         }
     }
     return (count % 2) == 1;
+}
+
+bool PolygonExtrusionWidget::segmentsIntersect(const QPointF& a1, const QPointF& a2, const QPointF& b1, const QPointF& b2, QPointF& out) {
+    double dx1 = a2.x() - a1.x();
+    double dy1 = a2.y() - a1.y();
+    double dx2 = b2.x() - b1.x();
+    double dy2 = b2.y() - b1.y();
+
+    double denom = dx1 * dy2 - dy1 * dx2;
+    if (std::abs(denom) < 1e-8) return false; // parallel
+
+    double ua = ((b1.x() - a1.x()) * dy2 - (b1.y() - a1.y()) * dx2) / denom;
+    double ub = ((b1.x() - a1.x()) * dy1 - (b1.y() - a1.y()) * dx1) / denom;
+
+    if (ua < 0 || ua > 1 || ub < 0 || ub > 1) return false;
+
+    out = QPointF(a1.x() + ua * dx1, a1.y() + ua * dy1);
+    return true;
+}
+
+void PolygonExtrusionWidget::addAndSortIntersections(std::vector<QPointF>& result, const QPointF& point) {
+    if (std::find(result.begin(), result.end(), point) == result.end()) {
+        result.push_back(point);
+    }
+}
+
+std::vector<QPointF> PolygonExtrusionWidget::splitEdges(const std::vector<QPointF>& polygon, const std::vector<QPointF>& intersections) {
+    std::vector<QPointF> result;
+    for (size_t i = 0; i < polygon.size(); ++i) {
+        QPointF a = polygon[i];
+        QPointF b = polygon[(i + 1) % polygon.size()];
+        result.push_back(a);
+
+        for (const auto& inter : intersections) {
+            QPointF dummy;
+            if (segmentsIntersect(a, b, inter, inter, dummy)) {
+                result.push_back(inter);
+            }
+        }
+    }
+
+    std::sort(result.begin(), result.end(), [](const QPointF& p1, const QPointF& p2) {
+        return p1.x() < p2.x() || (p1.x() == p2.x() && p1.y() < p2.y());
+    });
+
+    return result;
+}
+
+std::vector<QPointF> PolygonExtrusionWidget::intersect(const std::vector<QPointF>& poly1, const std::vector<QPointF>& poly2) {
+ vector<QPointF> intersections;
+
+    // Find all intersection points
+    for (size_t i = 0; i < poly1.size(); ++i) {
+        QPointF a1 = poly1[i];
+        QPointF a2 = poly1[(i + 1) % poly1.size()];
+        for (size_t j = 0; j < poly2.size(); ++j) {
+            QPointF b1 = poly2[j];
+            QPointF b2 = poly2[(j + 1) % poly2.size()];
+            QPointF inter;
+            if (segmentsIntersect(a1, a2, b1, b2, inter)) {
+                addAndSortIntersections(intersections, inter);
+            }
+        }
+    }
+
+    // Add points from poly1 inside poly2
+    for (const auto& point : poly1) {
+        if (pointInPolygon(point, poly2)) {
+            addAndSortIntersections(intersections, point);
+        }
+    }
+
+    // Add points from poly2 inside poly1
+    for (const auto& point : poly2) {
+        if (pointInPolygon(point, poly1)) {
+            addAndSortIntersections(intersections, point);
+        }
+    }
+
+    // Sort points in clockwise order
+    QPointF centroid(0, 0);
+    for (const auto& point : intersections) {
+        centroid += point;
+    }
+    centroid /= intersections.size();
+
+    sort(intersections.begin(), intersections.end(), [&centroid](const QPointF& a, const QPointF& b) {
+        double angleA = atan2(a.y() - centroid.y(), a.x() - centroid.x());
+        double angleB = atan2(b.y() - centroid.y(), b.x() - centroid.x());
+        return angleA < angleB;
+    });
+
+    return intersections;
+
+}
+
+std::vector<QPointF> PolygonExtrusionWidget::unionPolygons(const std::vector<QPointF>& poly1, const std::vector<QPointF>& poly2) {
+vector<QPointF> intersections;
+
+    // Find all intersection points
+    for (size_t i = 0; i < poly1.size(); ++i) {
+        QPointF a1 = poly1[i];
+        QPointF a2 = poly1[(i + 1) % poly1.size()];
+        for (size_t j = 0; j < poly2.size(); ++j) {
+            QPointF b1 = poly2[j];
+            QPointF b2 = poly2[(j + 1) % poly2.size()];
+            QPointF inter;
+            if (segmentsIntersect(a1, a2, b1, b2, inter)) {
+                addAndSortIntersections(intersections, inter);
+            }
+        }
+    }
+
+    // Split edges at intersection points
+    vector<QPointF> splitPoly1 = splitEdges(poly1, intersections);
+    vector<QPointF> splitPoly2 = splitEdges(poly2, intersections);
+
+    // Construct union polygon
+    vector<QPointF> result;
+
+    // Add points from poly1 that are outside poly2
+    for (const auto& point : splitPoly1) {
+        if (!pointInPolygon(point, poly2)) {
+            result.push_back(point);
+        }
+    }
+
+    // Add points from poly2 that are outside poly1
+    for (const auto& point : splitPoly2) {
+        if (!pointInPolygon(point, poly1)) {
+            result.push_back(point);
+        }
+    }
+
+    // Add intersection points
+    for (const auto& inter : intersections) {
+        result.push_back(inter);
+    }
+
+    // Sort points in clockwise order
+    QPointF centroid(0, 0);
+    for (const auto& point : result) {
+        centroid += point;
+    }
+    centroid /= result.size();
+
+    sort(result.begin(), result.end(), [&centroid](const QPointF& a, const QPointF& b) {
+        double angleA = atan2(a.y() - centroid.y(), a.x() - centroid.x());
+        double angleB = atan2(b.y() - centroid.y(), b.x() - centroid.x());
+        return angleA < angleB;
+    });
+
+    // Remove duplicate points
+    result.erase(unique(result.begin(), result.end(), [](const QPointF& a, const QPointF& b) {
+        return qFuzzyCompare(a.x(), b.x()) && qFuzzyCompare(a.y(), b.y());
+    }), result.end());
+
+    return result;
 }
 
 void PolygonExtrusionWidget::onApplyBooleanOperation() {
@@ -201,17 +365,62 @@ void PolygonExtrusionWidget::onApplyBooleanOperation() {
     QVector<QVector3D> resultPoints;
 
     if (operation == "Union") {
-        // Perform union: Render a shape with no edges inside the intersection
-        resultPoints = computeUnion(A, B);
+        if (polygons.size() < 2) return;
+
+        // Convert QVector<QVector3D> to std::vector<QPointF>
+        std::vector<QPointF> poly1, poly2;
+        for (const auto& p : polygons[0].points) {
+            poly1.emplace_back(p.x(), p.y());
+        }
+        for (const auto& p : polygons[1].points) {
+            poly2.emplace_back(p.x(), p.y());
+        }
+
+        // Perform union operation
+        std::vector<QPointF> result = unionPolygons(poly1, poly2);
+
+        if (!result.empty()) {
+            polygons.erase(polygons.begin());  // remove polygon[0]
+            polygons[0].points.clear();
+            for (const auto& p : result) {
+                polygons[0].points.append(QVector3D(p.x(), p.y(), 0.0f));
+            }
+            polygons[0].isClosed = true;
+            polygons[0].normal = computePolygonNormal(polygons[0].points);
+            update();  // trigger a repaint
+        } else {
+            qDebug() << "[applyUnion] Union failed or returned empty.";
+        }
         qDebug() << "Performed Union";
     } else if (operation == "Intersection") {
-        // Perform intersection: Show only the intersected shape
-        resultPoints = computeIntersection(A, B);
+        // Convert QVector<QVector3D> to std::vector<QPointF>
+        std::vector<QPointF> poly1, poly2;
+        for (const auto& p : A.points) {
+            poly1.emplace_back(p.x(), p.y());
+        }
+        for (const auto& p : B.points) {
+            poly2.emplace_back(p.x(), p.y());
+        }
+
+        // Perform intersection operation
+        std::vector<QPointF> result = intersect(poly1, poly2);
+
+        if (!result.empty()) {
+            polygons.erase(polygons.begin());  // remove polygon[0]
+            polygons[0].points.clear();
+            for (const auto& p : result) {
+            polygons[0].points.append(QVector3D(p.x(), p.y(), 0.0f));
+            }
+            polygons[0].isClosed = true;
+            polygons[0].normal = computePolygonNormal(polygons[0].points);
+            update();  // trigger a repaint
+        } else {
+            qDebug() << "[applyIntersection] Intersection failed or returned empty.";
+        }
         qDebug() << "Performed Intersection";
-    }
-    else if (operation == "Subtraction")
-    {
-        resultPoints = computeSubtraction(A, B);
+    } else if (operation == "Subtraction") {
+        // Subtraction logic can be implemented similarly using helper functions
+    
         qDebug() << "Performed Subtraction";
     }
 
@@ -221,204 +430,4 @@ void PolygonExtrusionWidget::onApplyBooleanOperation() {
         A.normal = computePolygonNormal(A.points);
         update();
     }
-}
-
-QVector<QVector3D> PolygonExtrusionWidget::computeIntersection(const Polygon &A, const Polygon &B) {
-    QVector<QVector3D> result;
-
-    // Convert QVector3D polygons to std::vector<std::vector<float>>
-    std::vector<std::vector<float>> poly1, poly2;
-    for (const auto &p : A.points) {
-        poly1.push_back({p.x(), p.y()});
-    }
-    for (const auto &p : B.points) {
-        poly2.push_back({p.x(), p.y()});
-    }
-
-    // Perform intersection using clipPolygon
-    auto intersectionResult = clipPolygon(poly1, poly2);
-
-    // Convert the result back to QVector3D
-    for (const auto &p : intersectionResult) {
-        result.append(QVector3D(p[0], p[1], 0.0f));
-    }
-
-    return result;
-}
-
-QVector<QVector3D> PolygonExtrusionWidget::computeUnion(const Polygon &A, const Polygon &B) {
-    QVector<QVector3D> result;
-
-    // Convert QVector3D polygons to std::vector<std::vector<float>>
-    std::vector<std::vector<float>> poly1, poly2;
-    for (const auto &p : A.points) {
-        poly1.push_back({p.x(), p.y()});
-    }
-    for (const auto &p : B.points) {
-        poly2.push_back({p.x(), p.y()});
-    }
-
-    // Perform union using convexHull
-    std::vector<std::vector<float>> combined = poly1;
-    combined.insert(combined.end(), poly2.begin(), poly2.end());
-    auto unionResult = convexHull(combined);
-
-    // Convert the result back to QVector3D
-    for (const auto &p : unionResult) {
-        result.append(QVector3D(p[0], p[1], 0.0f));
-    }
-
-    return result;
-}
-
-QVector<QVector3D> PolygonExtrusionWidget::computeSubtraction(const Polygon &A, const Polygon &B) {
-    QVector<QVector3D> result;
-
-    // Convert QVector3D polygons to std::vector<std::vector<float>>
-    std::vector<std::vector<float>> poly1, poly2;
-    for (const auto &p : A.points) {
-        poly1.push_back({p.x(), p.y()});
-    }
-    for (const auto &p : B.points) {
-        poly2.push_back({p.x(), p.y()});
-    }
-
-    // Perform subtraction using reverse Sutherland–Hodgman
-    auto inside = clipPolygon(poly1, poly2);
-    std::vector<std::vector<float>> outside;
-    for (const auto &pt : poly1) {
-        if (std::find(inside.begin(), inside.end(), pt) == inside.end()) {
-            outside.push_back(pt);
-        }
-    }
-
-    // Convert the result back to QVector3D
-    for (const auto &p : outside.empty() ? inside : outside) {
-        result.append(QVector3D(p[0], p[1], 0.0f));
-    }
-
-    return result;
-}
-
-bool PolygonExtrusionWidget::checkEdgeIntersection(const QVector3D &a1, const QVector3D &a2,
-                                                   const QVector3D &b1, const QVector3D &b2,
-                                                   QVector3D &intersection) {
-    float x1 = a1.x(), y1 = a1.y();
-    float x2 = a2.x(), y2 = a2.y();
-    float x3 = b1.x(), y3 = b1.y();
-    float x4 = b2.x(), y4 = b2.y();
-
-    float denom = (x1 - x2)*(y3 - y4) - (y1 - y2)*(x3 - x4);
-    if (qFuzzyIsNull(denom)) return false;
-
-    float xi = ((x1*y2 - y1*x2)*(x3 - x4) - (x1 - x2)*(x3*y4 - y3*x4)) / denom;
-    float yi = ((x1*y2 - y1*x2)*(y3 - y4) - (y1 - y2)*(x3*y4 - y3*x4)) / denom;
-
-    if ((qMin(x1, x2) <= xi && xi <= qMax(x1, x2)) &&
-        (qMin(y1, y2) <= yi && yi <= qMax(y1, y2)) &&
-        (qMin(x3, x4) <= xi && xi <= qMax(x3, x4)) &&
-        (qMin(y3, y4) <= yi && yi <= qMax(y3, y4))) {
-        intersection = QVector3D(xi, yi, 0);
-        return true;
-    }
-    return false;
-}
-
-static bool pointInPolygon(const std::vector<std::vector<float>> &polygon, float x, float y) {
-    bool inside = false;
-    size_t n = polygon.size();
-    for (size_t i = 0, j = n - 1; i < n; j = i++) {
-        const auto &pi = polygon[i];
-        const auto &pj = polygon[j];
-        if ((pi[1] > y) != (pj[1] > y) &&
-            x < (pj[0] - pi[0]) * (y - pi[1]) / (pj[1] - pi[1] + 1e-6) + pi[0]) {
-            inside = !inside;
-        }
-    }
-    return inside;
-}
-
-std::vector<std::vector<float>> PolygonExtrusionWidget::clipPolygon(
-    const std::vector<std::vector<float>> &subjectPolygon,
-    const std::vector<std::vector<float>> &clipPolygon) {
-    std::vector<std::vector<float>> output = subjectPolygon;
-    for (size_t i = 0; i < clipPolygon.size(); ++i) {
-        std::vector<std::vector<float>> input = output;
-        output.clear();
-
-        std::vector<float> A = clipPolygon[i];
-        std::vector<float> B = clipPolygon[(i + 1) % clipPolygon.size()];
-
-        auto inside = [&](const std::vector<float> &p) {
-            return (B[0] - A[0]) * (p[1] - A[1]) > (B[1] - A[1]) * (p[0] - A[0]);
-        };
-
-        auto intersection = [&](const std::vector<float> &p1, const std::vector<float> &p2) {
-            float A1 = p2[1] - p1[1];
-            float B1 = p1[0] - p2[0];
-            float C1 = A1 * p1[0] + B1 * p1[1];
-
-            float A2 = B[1] - A[1];
-            float B2 = A[0] - B[0];
-            float C2 = A2 * A[0] + B2 * A[1];
-
-            float det = A1 * B2 - A2 * B1;
-            if (fabs(det) < 1e-6)
-                return p2;
-            float x = (B2 * C1 - B1 * C2) / det;
-            float y = (A1 * C2 - A2 * C1) / det;
-            return std::vector<float>{x, y};
-        };
-
-        for (size_t j = 0; j < input.size(); ++j) {
-            const std::vector<float> &current = input[j];
-            const std::vector<float> &prev = input[(j + input.size() - 1) % input.size()];
-            bool currIn = inside(current);
-            bool prevIn = inside(prev);
-
-            if (currIn && prevIn)
-                output.push_back(current);
-            else if (prevIn && !currIn)
-                output.push_back(intersection(prev, current));
-            else if (!prevIn && currIn) {
-                output.push_back(intersection(prev, current));
-                output.push_back(current);
-            }
-        }
-    }
-
-    return output;
-}
-
-static float cross(const std::vector<float> &O, const std::vector<float> &A, const std::vector<float> &B) {
-    return (A[0] - O[0]) * (B[1] - O[1]) - (A[1] - O[1]) * (B[0] - O[0]);
-}
-
-std::vector<std::vector<float>> PolygonExtrusionWidget::convexHull(std::vector<std::vector<float>> P) {
-    int n = P.size(), k = 0;
-    if (n <= 3)
-        return P;
-
-    std::sort(P.begin(), P.end(), [](const std::vector<float> &a, const std::vector<float> &b) {
-        return a[0] < b[0] || (a[0] == b[0] && a[1] < b[1]);
-    });
-
-    std::vector<std::vector<float>> H(2 * n);
-
-    // Lower hull
-    for (int i = 0; i < n; ++i) {
-        while (k >= 2 && cross(H[k - 2], H[k - 1], P[i]) <= 0)
-            k--;
-        H[k++] = P[i];
-    }
-
-    // Upper hull
-    for (int i = n - 2, t = k + 1; i >= 0; --i) {
-        while (k >= t && cross(H[k - 2], H[k - 1], P[i]) <= 0)
-            k--;
-        H[k++] = P[i];
-    }
-
-    H.resize(k - 1);
-    return H;
 }
