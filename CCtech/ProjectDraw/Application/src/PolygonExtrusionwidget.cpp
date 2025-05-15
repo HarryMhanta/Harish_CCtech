@@ -352,9 +352,65 @@ vector<QPointF> intersections;
     return result;
 }
 
+std::vector<QPointF> PolygonExtrusionWidget::subtractPolygons(const std::vector<QPointF>& poly1, const std::vector<QPointF>& poly2) {
+    std::vector<QPointF> intersections;
+
+    // Find all intersection points
+    for (size_t i = 0; i < poly1.size(); ++i) {
+        QPointF a1 = poly1[i];
+        QPointF a2 = poly1[(i + 1) % poly1.size()];
+        for (size_t j = 0; j < poly2.size(); ++j) {
+            QPointF b1 = poly2[j];
+            QPointF b2 = poly2[(j + 1) % poly2.size()];
+            QPointF inter;
+            if (segmentsIntersect(a1, a2, b1, b2, inter)) {
+                addAndSortIntersections(intersections, inter);
+            }
+        }
+    }
+
+    // Split edges at intersection points
+    std::vector<QPointF> splitPoly1 = splitEdges(poly1, intersections);
+
+    // Construct the subtraction result
+    std::vector<QPointF> result;
+
+    // Add points from poly1 that are outside poly2
+    for (const auto& point : splitPoly1) {
+        if (!pointInPolygon(point, poly2)) {
+            result.push_back(point);
+        }
+    }
+
+    // Add intersection points
+    for (const auto& inter : intersections) {
+        result.push_back(inter);
+    }
+
+    // Sort points in clockwise order
+    QPointF centroid(0, 0);
+    for (const auto& point : result) {
+        centroid += point;
+    }
+    centroid /= result.size();
+
+    std::sort(result.begin(), result.end(), [&centroid](const QPointF& a, const QPointF& b) {
+        double angleA = atan2(a.y() - centroid.y(), a.x() - centroid.x());
+        double angleB = atan2(b.y() - centroid.y(), b.x() - centroid.x());
+        return angleA < angleB;
+    });
+
+    // Remove duplicate points
+    result.erase(std::unique(result.begin(), result.end(), [](const QPointF& a, const QPointF& b) {
+        return qFuzzyCompare(a.x(), b.x()) && qFuzzyCompare(a.y(), b.y());
+    }), result.end());
+
+    return result;
+}
+
 void PolygonExtrusionWidget::onApplyBooleanOperation() {
     if (polygons.size() < 2) {
-        qDebug() << "At least two polygons are required.";
+        qDebug() << "At least two shapes are required.";
         return;
     }
 
@@ -362,72 +418,68 @@ void PolygonExtrusionWidget::onApplyBooleanOperation() {
     Polygon &A = polygons[0];
     Polygon &B = polygons[1];
 
-    QVector<QVector3D> resultPoints;
+    // Convert shapes to QPainterPath
+    QPainterPath pathA = convertToPath(A);
+    QPainterPath pathB = convertToPath(B);
+    QPainterPath resultPath;
 
     if (operation == "Union") {
-        if (polygons.size() < 2) return;
-
-        // Convert QVector<QVector3D> to std::vector<QPointF>
-        std::vector<QPointF> poly1, poly2;
-        for (const auto& p : polygons[0].points) {
-            poly1.emplace_back(p.x(), p.y());
-        }
-        for (const auto& p : polygons[1].points) {
-            poly2.emplace_back(p.x(), p.y());
-        }
-
-        // Perform union operation
-        std::vector<QPointF> result = unionPolygons(poly1, poly2);
-
-        if (!result.empty()) {
-            polygons.erase(polygons.begin());  // remove polygon[0]
-            polygons[0].points.clear();
-            for (const auto& p : result) {
-                polygons[0].points.append(QVector3D(p.x(), p.y(), 0.0f));
-            }
-            polygons[0].isClosed = true;
-            polygons[0].normal = computePolygonNormal(polygons[0].points);
-            update();  // trigger a repaint
-        } else {
-            qDebug() << "[applyUnion] Union failed or returned empty.";
-        }
-        qDebug() << "Performed Union";
+        resultPath = pathA.united(pathB);
     } else if (operation == "Intersection") {
-        // Convert QVector<QVector3D> to std::vector<QPointF>
-        std::vector<QPointF> poly1, poly2;
-        for (const auto& p : A.points) {
-            poly1.emplace_back(p.x(), p.y());
-        }
-        for (const auto& p : B.points) {
-            poly2.emplace_back(p.x(), p.y());
-        }
-
-        // Perform intersection operation
-        std::vector<QPointF> result = intersect(poly1, poly2);
-
-        if (!result.empty()) {
-            polygons.erase(polygons.begin());  // remove polygon[0]
-            polygons[0].points.clear();
-            for (const auto& p : result) {
-            polygons[0].points.append(QVector3D(p.x(), p.y(), 0.0f));
-            }
-            polygons[0].isClosed = true;
-            polygons[0].normal = computePolygonNormal(polygons[0].points);
-            update();  // trigger a repaint
-        } else {
-            qDebug() << "[applyIntersection] Intersection failed or returned empty.";
-        }
-        qDebug() << "Performed Intersection";
+        resultPath = pathA.intersected(pathB);
     } else if (operation == "Subtraction") {
-        // Subtraction logic can be implemented similarly using helper functions
-    
-        qDebug() << "Performed Subtraction";
+        resultPath = pathA.subtracted(pathB);
+    }
+
+    // Convert resultPath back to Polygon (for union/intersection)
+    QVector<QVector3D> resultPoints;
+    for (int i = 0; i < resultPath.elementCount(); ++i) {
+        QPainterPath::Element elem = resultPath.elementAt(i);
+        if (elem.isMoveTo() || elem.isLineTo()) {
+            resultPoints.append(QVector3D(elem.x, elem.y, 0.0f));
+        }
     }
 
     if (!resultPoints.isEmpty()) {
         A.points = resultPoints;
         A.isClosed = true;
         A.normal = computePolygonNormal(A.points);
-        update();
+    } else {
+        qDebug() << "Operation failed or returned empty.";
     }
+
+    // Remove the second shape (B) from the polygons list
+    if (polygons.size() > 1) {
+        polygons.removeAt(1);
+    }
+
+    // Trigger a repaint
+    update();
+}
+
+QPainterPath PolygonExtrusionWidget::convertToPath(const Polygon &shape) {
+    QPainterPath path;
+
+    if (shape.isArc) {
+        // Convert arc to QPainterPath
+        QRectF rect(shape.arcCenter.x() - shape.arcRadius, shape.arcCenter.y() - shape.arcRadius,
+                    shape.arcRadius * 2, shape.arcRadius * 2);
+        path.arcTo(rect, shape.arcStartAngle, shape.arcEndAngle - shape.arcStartAngle);
+    } else if (shape.isCircle) {
+        // Convert circle to QPainterPath
+        QRectF rect(shape.circleCenter.x() - shape.circleRadius, shape.circleCenter.y() - shape.circleRadius,
+                    shape.circleRadius * 2, shape.circleRadius * 2);
+        path.addEllipse(rect);
+    } else if (!shape.points.isEmpty()) {
+        // Convert polygon to QPainterPath
+        path.moveTo(shape.points.first().toPointF());
+        for (const auto &point : shape.points) {
+            path.lineTo(point.toPointF());
+        }
+        if (shape.isClosed) {
+            path.closeSubpath();
+        }
+    }
+
+    return path;
 }

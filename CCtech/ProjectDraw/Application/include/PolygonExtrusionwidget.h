@@ -10,6 +10,7 @@
 #include <QCheckBox>
 #include <vector>
 #include <QPointF>
+#include <QPainterPath>
 
 struct Polygon {
     QVector<QVector3D> points;          // Points of the polygon
@@ -17,6 +18,15 @@ struct Polygon {
     float extrusionHeight = 0.0f;       // Extrusion height for the polygon
     bool isClosed = false;              // Whether the polygon is closed
     QPoint position;                    // Position for free movement
+    // For arc/circle support (if used)
+    bool isArc = false;
+    bool isCircle = false;
+    QVector3D arcCenter;
+    float arcRadius = 0.0f;
+    float arcStartAngle = 0.0f;
+    float arcEndAngle = 0.0f;
+    QVector3D circleCenter;
+    float circleRadius = 0.0f;
 };
 
 class PolygonExtrusionWidget : public QOpenGLWidget, protected QOpenGLFunctions {
@@ -35,40 +45,49 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) override;
 
 private:
-    QVector<Polygon> polygons;          // List of polygons
-    int selectedPolygonIndex = -1;      // Index of the selected polygon
-    QPoint lastMousePos;                // Last mouse position for rotation
+    QVector<Polygon> polygons;
+    int selectedPolygonIndex = -1;
+    QPoint lastMousePos;
+    float rotationX = 0.0f;
+    float rotationY = 0.0f;
+    bool rightMousePressed = false;
+    bool polygonClosed = false;
+    float extrusionHeight = 0.0f;
 
-    float rotationX = 0.0f;             // Rotation around the X-axis
-    float rotationY = 0.0f;             // Rotation around the Y-axis
-    bool rightMousePressed = false;     // Whether the right mouse button is pressed
-    bool polygonClosed = false;         // Whether the current polygon is closed
-    float extrusionHeight = 0.0f;       // Extrusion height for the current polygon
+    QComboBox *modeComboBox = nullptr;
+    QComboBox *booleanComboBox = nullptr;
+    QCheckBox *subtractionModeCheckBox = nullptr;
+    QPushButton *applyBooleanButton = nullptr;
 
-    QComboBox *booleanComboBox;         // ComboBox for selecting boolean operations
-    QCheckBox *subtractionModeCheckBox; // CheckBox for subtraction mode (A - B or B - A)
-    QPushButton *applyBooleanButton;    // Button to apply the selected boolean operation
+    // For arc/circle drawing
+    bool drawingArc = false;
+    bool drawingCircle = false;
+    QVector3D arcStartPoint, arcEndPoint, circleCenter;
+    float circleRadius = 0.0f;
 
     // Helper functions
-    QVector3D screenToWorld(const QPoint &pos); // Convert screen coordinates to world coordinates
-    bool isCloseToFirstPoint(const QVector3D &p, const Polygon &polygon); // Check if a point is close to the first point of a polygon
-    QVector3D computePolygonNormal(const QVector<QVector3D> &points); // Compute the normal vector of a polygon
+    QVector3D screenToWorld(const QPoint &pos);
+    bool isCloseToFirstPoint(const QVector3D &p, const Polygon &polygon);
+    QVector3D computePolygonNormal(const QVector<QVector3D> &points);
 
-    // Boolean operation functions
-    QVector<QVector3D> computeUnion(const Polygon &A, const Polygon &B); // Compute the union of two polygons
-    QVector<QVector3D> computeIntersection(const Polygon &A, const Polygon &B); // Compute the intersection of two polygons
-    QVector<QVector3D> computeSubtraction(const Polygon &A, const Polygon &B); // Compute the subtraction of two polygons
+    // Boolean operation helpers
+    bool pointInPolygon(const QPointF& point, const std::vector<QPointF>& polygon);
+    bool segmentsIntersect(const QPointF& a1, const QPointF& a2, const QPointF& b1, const QPointF& b2, QPointF& out);
+    void addAndSortIntersections(std::vector<QPointF>& result, const QPointF& point);
+    std::vector<QPointF> splitEdges(const std::vector<QPointF>& polygon, const std::vector<QPointF>& intersections);
 
-    // Helper functions for boolean operations
-    bool pointInPolygon(const QPointF& point, const std::vector<QPointF>& polygon); // Check if a point is inside a polygon
-    bool segmentsIntersect(const QPointF& a1, const QPointF& a2, const QPointF& b1, const QPointF& b2, QPointF& out); // Check if two line segments intersect
-    void addAndSortIntersections(std::vector<QPointF>& result, const QPointF& point); // Add and sort intersection points
-    std::vector<QPointF> splitEdges(const std::vector<QPointF>& polygon, const std::vector<QPointF>& intersections); // Split edges at intersection points
+    // Boolean operations
+    std::vector<QPointF> intersect(const std::vector<QPointF>& poly1, const std::vector<QPointF>& poly2);
+    std::vector<QPointF> unionPolygons(const std::vector<QPointF>& poly1, const std::vector<QPointF>& poly2);
+    std::vector<QPointF> subtractPolygons(const std::vector<QPointF>& poly1, const std::vector<QPointF>& poly2);
 
-    // PolygonBoolean operations
-    std::vector<QPointF> intersect(const std::vector<QPointF>& poly1, const std::vector<QPointF>& poly2); // Compute intersection of two polygons
-    std::vector<QPointF> unionPolygons(const std::vector<QPointF>& poly1, const std::vector<QPointF>& poly2); // Compute union of two polygons
+    // QPainterPath conversion
+    QPainterPath convertToPath(const Polygon &shape);
+
+    // Arc/circle support
+    void addCircle(const QVector3D &center, float radius);
+    void addArc(const QVector3D &startPoint, const QVector3D &endPoint);
 
 private slots:
-    void onApplyBooleanOperation(); // Slot to handle the application of boolean operations
+    void onApplyBooleanOperation();
 };
