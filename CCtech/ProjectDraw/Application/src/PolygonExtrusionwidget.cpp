@@ -460,17 +460,18 @@ void PolygonExtrusionWidget::onApplyBooleanOperation() {
 QPainterPath PolygonExtrusionWidget::convertToPath(const Polygon &shape) {
     QPainterPath path;
 
-    if (shape.isArc) {
-        // Convert arc to QPainterPath
-        QRectF rect(shape.arcCenter.x() - shape.arcRadius, shape.arcCenter.y() - shape.arcRadius,
-                    shape.arcRadius * 2, shape.arcRadius * 2);
-        path.arcTo(rect, shape.arcStartAngle, shape.arcEndAngle - shape.arcStartAngle);
-    } else if (shape.isCircle) {
-        // Convert circle to QPainterPath
-        QRectF rect(shape.circleCenter.x() - shape.circleRadius, shape.circleCenter.y() - shape.circleRadius,
-                    shape.circleRadius * 2, shape.circleRadius * 2);
-        path.addEllipse(rect);
-    } else if (!shape.points.isEmpty()) {
+    // if (shape.isArc) {
+    //     // Convert arc to QPainterPath
+    //     QRectF rect(shape.arcCenter.x() - shape.arcRadius, shape.arcCenter.y() - shape.arcRadius,
+    //                 shape.arcRadius * 2, shape.arcRadius * 2);
+    //     path.arcTo(rect, shape.arcStartAngle, shape.arcEndAngle - shape.arcStartAngle);
+    // } else if (shape.isCircle) {
+    //     // Convert circle to QPainterPath
+    //     QRectF rect(shape.circleCenter.x() - shape.circleRadius, shape.circleCenter.y() - shape.circleRadius,
+    //                 shape.circleRadius * 2, shape.circleRadius * 2);
+    //     path.addEllipse(rect);
+    //}
+     if (!shape.points.isEmpty()) {
         // Convert polygon to QPainterPath
         path.moveTo(shape.points.first().toPointF());
         for (const auto &point : shape.points) {

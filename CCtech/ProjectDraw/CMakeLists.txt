@@ -35,6 +35,8 @@ file(GLOB OPENGL_SRC
     ${CMAKE_SOURCE_DIR}/application/include/GLWidget.h
     ${CMAKE_SOURCE_DIR}/application/src/PolygonExtrusionwidget.cpp
     ${CMAKE_SOURCE_DIR}/application/include/PolygonExtrusionwidget.h
+    ${CMAKE_SOURCE_DIR}/application/src/BezierToolWidget.cpp
+    ${CMAKE_SOURCE_DIR}/application/include/BezierToolWidget.h
 )
 list(APPEND APPLICATION_SRC ${OPENGL_SRC})
  

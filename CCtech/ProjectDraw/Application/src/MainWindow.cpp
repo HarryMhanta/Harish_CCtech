@@ -1,6 +1,7 @@
 #include "MainWindow.h"
 #include "GLWidget.h"
 #include "PolygonExtrusionWidget.h"
+#include "BezierToolWidget.h"
 #include <QPushButton>
 #include <QComboBox>
 #include <QGroupBox>
@@ -78,6 +79,10 @@ MainWindow::MainWindow(QWidget *parent)
     extrudeButton = new QPushButton("Extrude", centralWidget);
     bottomLayout->addWidget(extrudeButton);
 
+    bezierToolButton = new QPushButton("Bezier Tool", centralWidget);
+    bottomLayout->addWidget(bezierToolButton);
+
+
     // Add widgets to the main layout
     mainLayout->addLayout(topLayout);
     mainLayout->addWidget(openGLWidget, 1); // Stretch factor to make it resizable
@@ -104,6 +109,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(loadOBJButton, &QPushButton::clicked, this, &MainWindow::onLoadOBJButtonClicked);
     connect(loadSTLButton, &QPushButton::clicked, this, &MainWindow::onLoadSTLButtonClicked);
     connect(extrudeButton, &QPushButton::clicked, this, &MainWindow::onExtrudeButtonClicked);
+    connect(bezierToolButton, &QPushButton::clicked, this, &MainWindow::onBezierToolButtonClicked); // Add this line
+
 }
 
 MainWindow::~MainWindow()
@@ -154,6 +161,14 @@ void MainWindow::onExtrudeButtonClicked() {
     extrusionWidget->setWindowTitle("Polygon Extrusion");
     extrusionWidget->resize(800, 600);
     extrusionWidget->show();
+}
+
+void MainWindow::onBezierToolButtonClicked() {
+    BezierToolWidget *bezierWidget = new BezierToolWidget();
+    bezierWidget->setAttribute(Qt::WA_DeleteOnClose);
+    bezierWidget->setWindowTitle("Bezier Tool");
+    bezierWidget->resize(800, 600);
+    bezierWidget->show();
 }
 
 void MainWindow::onAddButtonClicked()

@@ -23,6 +23,7 @@ private:
     Ui::MainWindow* ui;
     QString selectedShape;  // Store the selected shape name
     QPushButton *extrudeButton;
+    QPushButton *bezierToolButton;
 
     // Member variables for UI components 
     GLWidget* openGLWidget;
@@ -41,4 +42,5 @@ private slots:
     void onLoadOBJButtonClicked();                  // Handle Load OBJ button click
     void onLoadSTLButtonClicked();                  // Handle Load STL button click
     void onExtrudeButtonClicked();                // Handle Extrude button click
+    void onBezierToolButtonClicked();               // Handle Bezier Tool button click
 };
