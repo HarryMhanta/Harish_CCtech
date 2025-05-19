@@ -1,4 +1,5 @@
 #include "PolygonExtrusionWidget.h"
+#include "PolygonExtrusionWidgetUI.h"
 #include <QOpenGLFunctions>
 #include <QDebug>
 #include <cmath>
@@ -17,27 +18,16 @@ PolygonExtrusionWidget::PolygonExtrusionWidget(QWidget *parent)
     setWindowFlags(Qt::Window | Qt::WindowMinimizeButtonHint |
                    Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint);
 
-    booleanComboBox = new QComboBox(this);
-    booleanComboBox->addItem("Union");
-    booleanComboBox->addItem("Subtraction");
-    booleanComboBox->addItem("Intersection");
-    booleanComboBox->setFixedSize(100, 25);
+    // Use the UI helper class
+    ui = new PolygonExtrusionWidgetUI(this);
 
-    subtractionModeCheckBox = new QCheckBox("A - B", this); // Toggle
-    subtractionModeCheckBox->setChecked(true);
-    subtractionModeCheckBox->setFixedSize(100, 20);
+    booleanComboBox = ui->booleanComboBox;
+    subtractionModeCheckBox = ui->subtractionModeCheckBox;
+    applyBooleanButton = ui->applyBooleanButton;
 
-    applyBooleanButton = new QPushButton("Apply", this);
-    applyBooleanButton->setFixedSize(100, 25);
     connect(applyBooleanButton, &QPushButton::clicked, this, &PolygonExtrusionWidget::onApplyBooleanOperation);
 
-    QVBoxLayout *layout = new QVBoxLayout();
-    layout->addWidget(booleanComboBox);
-    layout->addWidget(subtractionModeCheckBox);
-    layout->addWidget(applyBooleanButton);
-    layout->setAlignment(Qt::AlignTop | Qt::AlignRight);
-    layout->setContentsMargins(10, 10, 10, 10); 
-    setLayout(layout);
+    setLayout(ui->layout);
 }
 
 PolygonExtrusionWidget::~PolygonExtrusionWidget() {}

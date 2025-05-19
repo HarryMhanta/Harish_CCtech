@@ -1,5 +1,6 @@
 #pragma once
 
+#include "PolygonExtrusionWidgetUI.h"
 #include <QOpenGLFunctions>
 #include <QOpenGLWidget>
 #include <QVector3D>
@@ -53,6 +54,8 @@ private:
     bool rightMousePressed = false;
     bool polygonClosed = false;
     float extrusionHeight = 0.0f;
+
+    PolygonExtrusionWidgetUI* ui;
 
     QComboBox *modeComboBox = nullptr;
     QComboBox *booleanComboBox = nullptr;
