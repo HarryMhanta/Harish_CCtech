@@ -101,7 +101,7 @@ void BezierToolWidget::onFinishClicked() {
             finishedFirst = true;
             beziers.append(QVector<QVector3D>());
             currentBezierIndex = 1;
-            finishButton->setText("Finish 2");
+            finishButton->setText("Finish second");
         }
     } else if (!finishedSecond) {
         if (beziers[currentBezierIndex].size() >= 2) {
